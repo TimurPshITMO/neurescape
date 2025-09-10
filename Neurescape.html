@@ -1,0 +1,549 @@
+<html>
+	<head>
+		<meta charset = 'UTF-8'>
+		<script>
+			class NotifyObject {
+			  constructor() {
+				this.listeners = Object();
+			  }
+
+			  on(evt, callback) {
+				//console.log("Listener added: " + evt);
+				if (!this.listeners.hasOwnProperty(evt)) {
+				  this.listeners[evt] = Array();
+				}
+				this.listeners[evt].push(callback);
+			  }
+
+			  internalTriggerProcess(evt, params) {
+				//Please override this function for custom processing;
+			  }
+
+			  trigger(evt, params) {
+				//console.log("trigger called " + evt);
+				//console.dir(listeners);
+
+				if (evt in this.listeners) {
+				  var callbacks = this.listeners[evt];
+				  //Call all callbacks with the params
+				  for (var x in callbacks) {
+					callbacks[x](params);
+				  }
+				} else {
+				  //console.log("No listeners found for " + evt);
+				}
+
+				this.internalTriggerProcess(evt, params);
+			  }
+			}
+
+			function cons(line) {
+			  //console.log(line)
+			}
+
+
+			const Meditation = 0;
+			const MeditationHistory = 1;
+			const Concentration = 2;
+			const ConcentrationHistory = 3;
+			const BCI = 'bci';
+			const Rhythms = 5;
+			const RhythmsHistory = 6;
+			const MentalState = 7;
+			const MentalStateHistory = 8;
+			const RecordMentalState = 9;
+			const RemoveMentalStateRecord = 10;
+			const StartMentalStates = 11;
+			const StopMentalStates = 12;
+			const StartDevice = 13;
+			const StopDevice = 14;
+			const ListDevices = 15;
+			const DeviceCount = 16;
+			const DeviceInfo = 17;
+			const MakeFavorite = 18;
+			const StartRecord = 'StartRecord';
+			const StopRecord = 'StopRecord';
+			const Help = 21;
+
+			class NeuroplayConnector extends NotifyObject {
+			  constructor() {
+				super();
+				this.socket = null;
+				this.timeout = null;
+				this.watcher = null;
+				this.lastmessagetime = 0;
+				this.canconnect = true;
+			  }
+
+			  connect() {
+				this.disconnect();
+
+				if (!this.canconnect) return;
+
+				cons("Connecting");
+
+				this.socket = new WebSocket("ws://localhost:1336");
+				var that = this;
+				this.socket.onopen = function (event) {
+				  cons('РЎРѕРµРґРёРЅРµРЅРёРµ СѓСЃС‚Р°РЅРѕРІР»РµРЅРѕ');
+				  //that.send("Hi");
+				  that.messageConnect(false);
+				  //that.trigger('connected');
+				  //that.trigger('connectedChanged', {connected: true});
+				}
+
+				this.socket.onclose = function (event) {
+				  if (event.wasClean) {
+					cons('РЎРѕРµРґРёРЅРµРЅРёРµ Р·Р°РєСЂС‹С‚Рѕ С‡РёСЃС‚Рѕ');
+				  } else {
+					cons('РћР±СЂС‹РІ СЃРѕРµРґРёРЅРµРЅРёСЏ', "#C39"); // РЅР°РїСЂРёРјРµСЂ, "СѓР±РёС‚" РїСЂРѕС†РµСЃСЃ СЃРµСЂРІРµСЂР°
+				  }
+				  cons('РљРѕРґ: ' + event.code + ' РїСЂРёС‡РёРЅР°: ' + event.reason);
+
+				};
+
+				this.socket.onmessage = function (event) {
+				  var s = JSON.parse(event.data);
+
+				  that.lastmessagetime = new Date().getTime();
+
+				  cons(s);
+
+				  if (s.command == 'bci')
+					{
+					that.trigger('bci', s);
+				  }
+
+				  if (s.command == "stoprecord") {
+					console.log(s);
+					console.log('message')
+					that.trigger('edfData', s);
+				  }
+
+				  if (s.command == "controloptions") {
+					that.trigger('controlOptions', s);
+				  }
+				};
+
+				this.socket.onerror = function (error) {
+				  cons("РћС€РёР±РєР°", error);
+				};
+
+				this.watcher = setInterval(function () {
+				  if (new Date().getTime() - that.lastmessagetime > 3000) {
+					that.messageConnect(false);
+					that.connect();
+				  }
+
+				}, 5000);
+
+				this.timeout = setInterval(function () {
+				  that.send(BCI);
+				}, 100);
+			  }
+
+			  standalone() {
+				this.canconnect = false;
+			  }
+
+			  messageBci(sample) {
+				this.trigger(BCI, sample);
+			  }
+
+			  sendRecordData(sample) {
+				this.trigger('edfData', sample);
+			  }
+
+			  controlOptions(sample) {
+				this.trigger('controlOptions', sample);
+			  }
+
+			  messageConnect(connected) {
+				this.trigger(connected ? 'connected' : 'disconnected');
+				this.trigger('connectedChanged', {connected: connected});
+			  }
+
+			  send(text) {
+				if (this.socket && this.socket.readyState == 1) {
+				  this.socket.send(text);
+				}
+			  }
+
+			  start() {
+				this.send(StartRecord);
+			  }
+
+			  stop() {
+				this.send(StopRecord);
+				cons('РџРѕСЃР»Р°Р»Рё РѕСЃС‚Р°РЅРѕРІРєСѓ')
+			  }
+
+			  controlOptions() {
+				this.send('controlOptions')
+			  }
+
+			  disconnect() {
+				clearInterval(this.watcher);
+				clearInterval(this.timeout);
+
+				if (this.socket) {
+				  this.socket.close();
+				  this.socket = null;
+				}
+			  }
+			}
+			
+			
+			
+			
+			var menu_m = new Audio();
+			var game_m = new Audio();
+			var GaOv_m = new Audio();
+			var ending_m = new Audio();
+			
+			var bg_img = new Image();
+			var fl = new Image();
+			var fl1 = new Image();
+			var logo = new Image();
+			var GaOv = new Image();
+			var st1 = new Image();
+			var st2 = new Image();
+			var st3 = new Image();
+			var menu_p = new Image();
+			
+			GaOv.src = 'GameData/pictures/GameOver.png';
+			logo.src = 'GameData/pictures/logo.png';
+			bg_img.src = 'GameData/pictures/fon.png';
+			fl.src = 'GameData/pictures/floor.png';
+			fl1.src = 'GameData/pictures/floor1.png';
+			st1.src = 'GameData/pictures/player_state1.png';
+			st2.src = 'GameData/pictures/player_state2.png';
+			st3.src = 'GameData/pictures/player_state3.png';
+			menu_p.src = 'GameData/pictures/menu.png';
+			menu_m.src = 'GameData/music/guitar_menu.mp3';
+			game_m.src = 'GameData/music/flute_game.mp3';
+			GaOv_m.src = 'GameData/music/falling.mp3';
+			ending_m.src = 'GameData/music/piano_GameOver.mp3'
+			
+			var levels;
+			var bg;
+			var player;
+			var restart;
+			var intID;
+			var concentration;
+			var c;
+			var p;
+			var game_type;
+			var g;
+			var b;
+			var neuroplay = null;
+			var answer;
+			var question;
+			var points;
+			
+			function bci(data){
+				concentration = data.concentration;
+			}
+			
+			neuroplay = new NeuroplayConnector();
+			neuroplay.connect();  
+			neuroplay.on('bci', bci);
+			setInterval(function() { neuroplay.send('bci'); }, 100);
+			
+			//Функция определяет тип нового фрагмента пола (с ямой или без)
+			function addLevel () {
+				if (Math.random()<0.4) return true
+				else return false;
+			};
+			
+			function newQuestion(){
+				var a;
+				var b;
+				var c;
+				switch (Math.floor(Math.random()*3)){
+					case 0:
+						c = Math.floor(Math.random()*10);
+						b = Math.round(Math.random()*30);
+						a = c-b;
+						return [a,b,c,'+'];
+					case 1:
+						c = Math.floor(Math.random()*10);
+						a = Math.round(Math.random()*30);
+						b = a-c;
+						return [a,b,c,'-'];
+					case 2:
+						b = Math.round(Math.random()*30);
+						c = Math.floor(Math.random()*10);
+						a = b*c;
+						return [a,b,c,'/'];
+				};
+			};
+			
+			//Класс фрагментов пола
+			function Floor(pos,wid,t){
+				this.pos = pos;
+				this.width = wid;
+				this.type = t;
+				this.pict = this.type ? fl1:fl;
+			};
+			
+			function BG(pos,wid,pic){
+				this.pos = pos;
+				this.width = wid;
+				this.pict = pic;
+			};
+			
+			function Player(x,y,state,wid){
+				this.x = x;
+				this.y = y;
+				this.width = wid;
+				this.state = state;
+				this.part = 0;
+			}
+			
+			function gameOver(ctx,ar,con){
+				player.state = st3;
+				player.part = 0;
+				GaOv_m.play();
+				setTimeout(function tick(){
+					draw(ctx,ar,con,-1,-1,' ');
+					ending_m.currentTime = 0;
+					ending_m.play();
+					player.part+=700;
+					if (player.part>=3500){
+						ctx.fillStyle = 'black';
+						ctx.fillRect(0,0,900,500);
+						ctx.drawImage(GaOv,50,0);
+						
+						ctx.fillStyle = 'white';
+						ctx.font = 'bold 40pt Times New Roman';
+						ctx.textAlign = 'center';
+						ctx.fillText('Your score: '+Math.round(points),450,100);
+						
+						intID = setInterval(function(){
+							if (ending_m.currentTime>=ending_m.duration){
+								ending_m.currentTime = 0;
+								ending_m.play();
+							};
+							if (restart){
+								ending_m.pause();
+								clearInterval(intID);
+								menu(ctx);
+							}
+						},100);
+					} else setTimeout(tick,100);
+				},0)
+				
+				
+			}
+			
+			//Функция переносит состояние игры на холст
+			function draw(ctx,ar,con,xl,yl){
+				ctx.clearRect(0,0,1000,1000);
+				
+				for (i=0;i<=4;i++) ctx.drawImage(ar[i].pict,ar[i].pos,448,ar[i].width,52);
+				
+				ctx.drawImage(bg.pict,bg.pos,0)
+				if (bg.pos<900-bg.width) ctx.drawImage(bg.pict,bg.pos+bg.width,0);
+				
+				ctx.fillStyle = 'rgba(0,0,0,0.5)';
+				if (xl>0){
+					ctx.beginPath();
+					ctx.moveTo(450,500);
+					ctx.lineTo(xl,yl);
+					ctx.lineTo(450,0);
+					ctx.lineTo(0,0);
+					ctx.lineTo(0,500);
+					ctx.lineTo(450,500);
+					ctx.closePath();
+					ctx.fill();
+				} else {
+					ctx.drawImage(player.state,player.part,0,700,748,100,165,315,345);
+					ctx.fillRect(0,0,900,500);
+				};
+				
+				ctx.strokeStyle = 'black'
+				ctx.lineWidth=3;
+				ctx.strokeRect(15,15,160,20);
+				ctx.fillStyle = con<40 ? 'rgb(200,50,50)' : 'rgb(50,150,200)';
+				ctx.fillRect(20,20,con*1.5,10);
+				ctx.fillStyle = 'black';
+				ctx.fillRect(79,15,2,20);
+				
+				if (xl>0) ctx.drawImage(player.state,player.part,0,player.width,748,player.x,player.y,220,374)
+				
+				ctx.fillStyle = 'white';
+				ctx.font = 'bold 35pt Times New Roman';
+				ctx.shadowColor = 'rgb(255,255,100)'
+				ctx.shadowOffsetX = 0;
+				ctx.shadowOffsetY = 0;
+				ctx.shadowBlur = 8;
+				ctx.textAlign = 'left';
+				ctx.fillText(Math.round(points),10,490);
+				
+				if (game_type == '2'){
+					ctx.font = 'bold 50pt Times New Roman';
+					ctx.textAlign = 'center';
+					ctx.fillText(question[0]+' '+question[3]+' '+question[1]+' = ', 450, 100);
+				};
+				ctx.shadowBlur = 0;
+			};
+			
+			function begin(){
+				var canvas = document.getElementById ('canvas');
+				if (canvas.getContext){
+					var ctx = canvas.getContext('2d');
+					ctx.drawImage(logo,0,0);
+					b = false;
+					intID = setInterval(function(){
+						if (b){
+							clearInterval(intID);
+							menu(ctx);
+							return 0;
+						}
+					},100);
+				};
+			};
+			
+			function menu(ctx){
+				menu_m.currentTime = 0;
+				menu_m.play();
+				
+				g = false;
+				ctx.drawImage(menu_p,0,0)
+				intID = setInterval(function(){
+					if (g){
+						menu_m.pause();
+						clearInterval(intID);
+						start(ctx,g);
+						return 0;
+					};
+					if (menu_m.currentTime>=menu_m.duration){
+						menu_m.currentTime = 0;
+						menu_m.play();
+					};
+				},100);
+			};
+			
+			function start (ctx,game_t) {
+				
+				points = 0;
+				game_type = game_t;
+				restart = false;
+				concentration=39;
+				c=39;
+				p = 0;
+				levels = [];
+				answer = -1;
+				game_m.currentTime = 0;
+				game_m.play();
+				
+				if (game_type == '2') question = newQuestion();
+					
+				var speed = 5;	//Скорость игрока
+				var scale = 225;	//Размер 1 фрагмента пола в пикселях холста
+				var h = 5;		//Скорость изменения состояний медитации и концентрации
+				
+				//Создание начальных фрагментов пола
+				for (i=0;i<=4;i++) levels[i] = new Floor(scale*i,scale,false);
+				bg = new BG(0,3200,bg_img);
+				player = new Player(90,140,st1,440);
+				
+				intID = setInterval(step,100,ctx,speed,scale,h);
+			};
+			
+			function step(ctx,speed,scale,h){
+				
+				//Смягчение перепадов уровня концентрации и медитации
+				if (game_type == '1'){
+					if (c<concentration) c+=h;
+					if (c>concentration) c-=h;
+					if (c>=40) points+=0.2;
+				} else {
+					c-=h*0.15;
+					if (answer!=-1){
+						if (answer == question[2]){
+							c+=h*6;
+							points+=5;
+						} else c-=h*2
+						answer = -1;
+						question = newQuestion();
+					};
+					if (c<0) c = 0;
+					if (c>100) c = 100;
+				};
+				
+				if (c>=40) points+=0.2;
+				
+				if (levels[1].type){
+					player.state = st2;
+					xl = 250;
+					yl = 300;
+				} else {
+					player.state = st1;
+					xl = 260;
+					yl = 320;
+				}
+				
+				if (restart) {
+					game_m.pause();
+					clearInterval(intID);
+					menu(ctx);
+					return 0;
+				}
+				
+				if (levels[1].type && c<40){
+					game_m.pause();
+					clearInterval(intID);
+					gameOver(ctx,levels,c);
+					return 0;
+				} else {
+					//Движение пола
+					for (i=0;i<=4;i++) levels[i].pos-=speed;
+					bg.pos-=speed;
+					
+					player.part = ((player.width*p+player.part)%(player.width*10))
+					p = (p+1)%2;
+					
+					if (levels[0].pos <= -scale) {
+						//Удаление фрагментов пола, вышедших за границу экрана и создание новых
+						levels = levels.slice(1);
+						levels.push(new Floor(scale*4,scale,addLevel()))
+					};
+					if (bg.pos<=-bg.width) bg.pos+=bg.width;
+					draw(ctx,levels,c,xl,yl);
+				};
+				
+				if (game_m.currentTime>=game_m.duration){
+					game_m.currentTime = 0;
+					game_m.play();
+				};
+				
+			}
+			
+			document.addEventListener('keydown', function(event){
+				switch (event.key){
+					case 'Escape':
+						restart = true;
+						break;
+					case 'Enter':
+						b = true;
+						break;
+					case '1':
+						g = 1;
+						answer = 1;
+						break;
+					case '2':
+						g = 2;
+						answer = 2;
+						break;
+					default:
+						if (game_type == '2') answer = +event.key;
+				}
+			});
+		</script>
+	</head>
+	<body onload = "begin()">
+		<canvas id = "canvas" width = "900" height = "500"></canvas>
+	</body>
+</html>
